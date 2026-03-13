@@ -52,6 +52,10 @@ export class AuthApi {
     return response.data;
   }
 
+  async logout(): Promise<void> {
+    await this.client.post("/organizers/logout");
+  }
+
   async verifyTOTPLogin(token: string): Promise<void> {
     await this.client.post("/a2f/verify", { token });
   }

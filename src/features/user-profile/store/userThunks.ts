@@ -39,7 +39,7 @@ export const syncProfileFromAuth = () => {
 };
 
 // Thunk pour mettre à jour le profil
-export const updateUserProfile = (updates: Partial<UserProfile>) => {
+export const updateUserProfile = (updates: { data: Partial<UserProfile['data']> }) => {
   return async (dispatch: AppDispatch, getState: AppGetState, extra: Dependencies) => {
     const { userProfile, auth } = getState();
 

@@ -33,15 +33,7 @@ export class ProfileApi {
       headers: {
         "Content-Type": "application/json",
       },
-    });
-
-    // Intercepteur : injecte le token JWT dans chaque requête
-    this.client.interceptors.request.use((config) => {
-      const token = localStorage.getItem("token");
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
+      withCredentials: true, // envoie automatiquement le cookie httpOnly
     });
   }
 
@@ -50,7 +42,7 @@ export class ProfileApi {
     return response.data;
   }
 
-  async updateProfile(id: string, updates: Partial<UserProfile>): Promise<UserProfile> {
+  async updateProfile(id: string, updates: { data: Partial<UserProfile['data']> }): Promise<UserProfile> {
     const response = await this.client.patch<UserProfile>(`/organizers/${id}`, updates);
     return response.data;
   }

@@ -99,7 +99,6 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.requires2FAVerification = false;
       state.error = null;
-      localStorage.removeItem("token");
     },
 
     clearError: (state) => {

@@ -8,7 +8,8 @@ import {
   selectError,
   selectRequires2FAVerification,
 } from "../../store/authSelectors";
-import { logout, clearError } from "../../store/authSlice";
+import { clearError } from "../../store/authSlice";
+import { logoutUser } from "../../store/authThunks"
 import type { AppDispatch } from "../../../../modules/store/store";
 
 type Mode = "totp" | "backup";
@@ -61,7 +62,7 @@ export const TwoFactorVerificationPage: React.FC = () => {
   };
 
   const handleLogout = () => {
-    dispatch(logout());
+    dispatch(logoutUser());
     navigate("/login");
   };
 

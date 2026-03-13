@@ -13,6 +13,7 @@ import {
   loginComplete,
   twoFAVerifyFailure,
   authRestored,
+  logout,
 } from "./authSlice";
 import axios from "axios";
 
@@ -73,9 +74,6 @@ export const registerUser = (
       // Appel API
       const data = await extra.authApi.register(username, email, password);
 
-      // Stocker le token JWT
-      localStorage.setItem("token", data.token);
-
       // Connecter l'utilisateur
       dispatch(registerSuccess(data.user));
     } catch (error) {
@@ -96,34 +94,22 @@ export const registerUser = (
 
 // un thunk pour restaurer la session depuis le localStorage au démarrage
 export const restoreAuth = () => {
-  return (dispatch: AppDispatch) => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
+  return async (dispatch: AppDispatch, _getState: unknown, extra: Dependencies) => {
     try {
-      // Décoder le payload JWT (base64url → JSON) sans librairie
-      const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+      
+      // Si l'utilisateur est connecté, cette requête réussit
+      const profile = await extra.profileApi.getProfile();
 
-      // Vérifier l'expiration du token
-      if (payload.exp && payload.exp * 1000 < Date.now()) {
-        localStorage.removeItem("token");
-        return;
-      }
-
-      // Rehydrater le store avec les données du token
       dispatch(loginSuccess({
-        id: payload.id ?? payload.sub ?? "",
-        username: payload.username ?? "",
-        email: payload.email ?? "",
+        id: (profile as any).data?.id ?? "",
+        username: (profile as any).data?.username ?? "",
+        email: (profile as any).data?.email ?? "",
       }));
-
-      // Charger le profil depuis l'API
-      dispatch(syncProfileFromAuth());
-    } catch {
-      // Token malformé : on le supprime
-      localStorage.removeItem("token");
+    } catch(error) {
+      // Cookie absent ou expiré : l'utilisateur n'est pas connecté
+      console.error("Utilisateur non connecté.");
+      
     } finally {
-      // Signale que la restauration est terminée dans tous les cas
       dispatch(authRestored());
     }
   };
@@ -140,9 +126,6 @@ export const loginUser = (email: string, password: string) => {
 
       // Appel API
       const data = await extra.authApi.login(email, password);
-
-      // Stocker le token JWT (nécessaire pour les requêtes suivantes)
-      localStorage.setItem("token", data.data.token);
 
       // Marquer l'utilisateur comme en attente (pas encore authentifié)
       dispatch(loginPending(data.data.user));
@@ -200,6 +183,19 @@ export const useBackupCodeAtLogin = (code: string) => {
       } else {
         dispatch(twoFAVerifyFailure(error instanceof Error ? error.message : "Erreur inconnue"));
       }
+    }
+  };
+};
+
+// Thunk pour la déconnexion : supprime le cookie côté backend puis nettoie le store
+export const logoutUser = () => {
+  return async (dispatch: AppDispatch, _getState: AppGetState, extra: Dependencies) => {
+    try {
+      await extra.authApi.logout(); // demande au backend de clearCookie("token")
+    } catch {
+      // même si l'appel échoue, on déconnecte localement
+    } finally {
+      dispatch(logout());
     }
   };
 };

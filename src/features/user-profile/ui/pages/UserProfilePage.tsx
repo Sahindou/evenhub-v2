@@ -20,7 +20,7 @@ import {
   clear2FASetup,
 } from "../../store/userSlice";
 import { updateUserProfile, setup2FA, verify2FA } from "../../store/userThunks";
-import { logout } from "../../../authentification/store/authSlice";
+import { logoutUser } from "../../../authentification/store/authThunks";
 import type { AppDispatch } from "../../../../modules/store/store";
 
 export const UserProfilePage: React.FC = () => {
@@ -99,11 +99,11 @@ export const UserProfilePage: React.FC = () => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    dispatch(updateUserProfile(formData));
+    dispatch(updateUserProfile({data: formData}));
   };
 
   const handleLogout = () => {
-    dispatch(logout());
+    dispatch(logoutUser());
     navigate("/login");
   };
 
