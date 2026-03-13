@@ -5,15 +5,21 @@ import userEvent from "@testing-library/user-event";
 import { Provider } from "react-redux";
 import { createTestStore } from "../../../modules/testing/tests-environment";
 import type { AppStore } from "../../../modules/store/store";
-import { addUserToDb } from "../store/authSlice";
+import type { AuthApi } from "../../../modules/api/authApi";
 
 describe("Login page", () => {
   let store: AppStore;
+  let mockAuthApi: { login: jest.Mock; register: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Créer un nouveau store pour chaque test
-    store = createTestStore();
+    mockAuthApi = {
+      login: jest.fn(),
+      register: jest.fn(),
+    };
+    store = createTestStore({
+      dependencies: { authApi: mockAuthApi as unknown as AuthApi },
+    });
   });
 
   const setup = () => {
@@ -46,8 +52,6 @@ describe("Login page", () => {
 
     await userEvent.type(email, "test@eventhub");
 
-    // expect(screen.getByText(/invalid email/i)).toBeInTheDocument();
-
     await waitFor(() => {
       expect(btn).toBeDisabled();
     });
@@ -58,7 +62,7 @@ describe("Login page", () => {
     const btn = screen.getByRole("button", { name: "Login" });
     const email = screen.getByPlaceholderText("Enter your email");
 
-    await userEvent.type(email, "test@eventhub.com"); 
+    await userEvent.type(email, "test@eventhub.com");
 
     // Le bouton doit rester désactivé car le password est vide
     expect(btn).toBeDisabled();
@@ -88,15 +92,15 @@ describe("Login page", () => {
   });
 
   it("should dispatch loginUser action on form submit", async () => {
-    // Pré-remplir le store avec un utilisateur existant via une action Redux
-    store.dispatch(
-      addUserToDb({
+    // Mock de l'API qui retourne un utilisateur
+    mockAuthApi.login.mockResolvedValue({
+      token: "fake-jwt-token",
+      user: {
         id: "1",
         username: "TestUser",
         email: "test@eventhub.com",
-        password: "Testeur123@test",
-      })
-    );
+      },
+    });
 
     render(
       <Provider store={store}>
@@ -119,7 +123,7 @@ describe("Login page", () => {
       expect(state.auth.isLoading).toBe(true);
     });
 
-    // Attendre la fin du thunk (800ms de délai simulé)
+    // Attendre la fin du thunk
     await waitFor(
       () => {
         const state = store.getState();
@@ -133,18 +137,23 @@ describe("Login page", () => {
       },
       { timeout: 2000 }
     );
+
+    expect(mockAuthApi.login).toHaveBeenCalledWith(
+      "test@eventhub.com",
+      "Testeur123@test"
+    );
   });
 
   it("should show error for invalid credentials", async () => {
-    // Pré-remplir le store avec un utilisateur existant via une action Redux
-    store.dispatch(
-      addUserToDb({
-        id: "1",
-        username: "TestUser",
-        email: "test@eventhub.com",
-        password: "CorrectPassword123@",
-      })
-    );
+    // Mock de l'API qui retourne une erreur
+    const axiosError = {
+      isAxiosError: true,
+      response: {
+        data: { message: "Email ou mot de passe incorrect" },
+        status: 401,
+      },
+    };
+    mockAuthApi.login.mockRejectedValue(axiosError);
 
     render(
       <Provider store={store}>
@@ -173,6 +182,16 @@ describe("Login page", () => {
   });
 
   it("should show error when user does not exist", async () => {
+    // Mock de l'API qui retourne une erreur 404
+    const axiosError = {
+      isAxiosError: true,
+      response: {
+        data: { message: "Email ou mot de passe incorrect" },
+        status: 404,
+      },
+    };
+    mockAuthApi.login.mockRejectedValue(axiosError);
+
     setup();
 
     const email = screen.getByPlaceholderText("Enter your email");

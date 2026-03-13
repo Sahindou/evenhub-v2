@@ -2,7 +2,12 @@ import Form from "../components/Form";
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser } from "../../store/authThunks";
-import { selectIsLoading, selectError, selectIsAuthenticated } from "../../store/authSelectors";
+import {
+  selectIsLoading,
+  selectError,
+  selectIsAuthenticated,
+  selectRequires2FAVerification,
+} from "../../store/authSelectors";
 import { clearError } from "../../store/authSlice";
 import type { AppDispatch } from "../../../../modules/store/store";
 import { useNavigate } from "react-router-dom";
@@ -18,12 +23,13 @@ export const LoginPage: React.FC<{}> = () => {
     email: "",
     password: "",
   });
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   const dispatch = useDispatch<AppDispatch>();
   const isLoading = useSelector(selectIsLoading);
   const error = useSelector(selectError);
-  const isAuth = useSelector(selectIsAuthenticated)
+  const isAuth = useSelector(selectIsAuthenticated);
+  const requires2FA = useSelector(selectRequires2FAVerification);
 
   const handleChange = (name: string, value: string): void => {
     setForm((prev) => {
@@ -34,25 +40,36 @@ export const LoginPage: React.FC<{}> = () => {
     });
   };
 
-  const isDisabled: boolean = form.email === "" || form.password === "" || isLoading;
+  const isDisabled: boolean =
+    form.email === "" || form.password === "" || isLoading;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("📝 [LOGIN PAGE] Soumission du formulaire", {
-      email: form.email,
-      password: "***"
-    });
     dispatch(loginUser(form.email, form.password));
-    isAuth ? navigate("/profile") : null
   };
+
+  // Redirige vers /profile dès que isAuth passe à true
+  useEffect(() => {
+    if (isAuth) {
+      navigate("/profile");
+    }
+  }, [isAuth, navigate]);
+
+  // Redirige vers la vérification 2FA si nécessaire
+  useEffect(() => {
+    if (requires2FA) {
+      navigate("/2fa-verify");
+    }
+  }, [requires2FA, navigate]);
 
   useEffect(() => {
     return () => {
       dispatch(clearError());
     };
   }, [dispatch]);
-    return (
-         <>
+
+  return (
+    <>
       <Form
         title="Login"
         onSubmit={handleSubmit}
@@ -60,7 +77,6 @@ export const LoginPage: React.FC<{}> = () => {
         submitText="Login"
       >
         <div className="space-y-4">
-
           {/* Email Input */}
           <div className="relative flex items-center">
             <svg
@@ -137,5 +153,5 @@ export const LoginPage: React.FC<{}> = () => {
         </div>
       </Form>
     </>
-    )
-}
+  );
+};

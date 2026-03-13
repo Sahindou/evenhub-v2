@@ -1,5 +1,7 @@
 import type { Dependencies } from "../store/dependencies";
 import { createStore, type AppStore } from "../store/store";
+import { AuthApi } from "../api/authApi";
+import { ProfileApi } from "../api/profileApi";
 
 export class App{
     public dependencies: Dependencies;
@@ -11,7 +13,11 @@ export class App{
     }
 
     setupDependencies(): Dependencies {
-        return {}
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL as string;
+        return {
+            authApi: new AuthApi(apiBaseUrl),
+            profileApi: new ProfileApi(apiBaseUrl),
+        }
     }
 }
 

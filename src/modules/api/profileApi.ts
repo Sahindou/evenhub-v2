@@ -1,0 +1,72 @@
+import axios, { type AxiosInstance } from "axios";
+import type { UserProfile } from "../../features/user-profile/store/userSlice";
+
+export interface TwoFactorSetupResponse {
+  data: {
+    qrCode: {
+    image: string,
+    username: string,
+    secret: string
+}
+  };
+}
+
+export interface BackupCodesResponse {
+  data: {
+    backupCodes: string[];
+  };
+}
+
+export interface VerifyOtpResponse {
+  data: {
+    message: string;
+    backupCodes: string[];
+  };
+}
+
+export class ProfileApi {
+  private client: AxiosInstance;
+
+  constructor(baseURL: string) {
+    this.client = axios.create({
+      baseURL,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Intercepteur : injecte le token JWT dans chaque requête
+    this.client.interceptors.request.use((config) => {
+      const token = localStorage.getItem("token");
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
+  }
+
+  async getProfile(): Promise<UserProfile> {
+    const response = await this.client.get<UserProfile>(`/organizers/me`);
+    return response.data;
+  }
+
+  async updateProfile(id: string, updates: Partial<UserProfile>): Promise<UserProfile> {
+    const response = await this.client.patch<UserProfile>(`/organizers/${id}`, updates);
+    return response.data;
+  }
+
+  async setup2FA(): Promise<TwoFactorSetupResponse> {
+    const response = await this.client.get<TwoFactorSetupResponse>(`/a2f/qrcode`);
+    return response.data;
+  }
+
+  async verify2FA(token: string, secret: string): Promise<VerifyOtpResponse> {
+    const response = await this.client.post<VerifyOtpResponse>(`/a2f/verify`, { token, secret });
+    return response.data;
+  }
+
+  async generateBackupCodes(): Promise<BackupCodesResponse> {
+    const response = await this.client.post<BackupCodesResponse>(`/a2f/backup-codes/generate`);
+    return response.data;
+  }
+}

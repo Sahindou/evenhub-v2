@@ -3,6 +3,7 @@ import { AppWrapper } from "./modules/app/components/AppWrapper";
 import { Layout } from "./modules/app/components/Layout";
 import { LoginPage } from "./features/authentification/ui/pages/LoginPage";
 import { RegisterPage } from "./features/authentification/ui/pages/RegisterPage";
+import { TwoFactorVerificationPage } from "./features/authentification/ui/pages/TwoFactorVerificationPage";
 import { UserProfilePage } from "./features/user-profile/ui/pages/UserProfilePage";
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
           
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/2fa-verify" element={<TwoFactorVerificationPage />} />
 
          
           <Route

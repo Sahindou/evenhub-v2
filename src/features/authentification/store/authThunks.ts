@@ -1,4 +1,5 @@
 import type { AppDispatch, AppGetState } from "../../../modules/store/store";
+import type { Dependencies } from "../../../modules/store/dependencies";
 import { syncProfileFromAuth } from "../../user-profile/store/userThunks";
 import {
   registerStart,
@@ -7,9 +8,13 @@ import {
   loginStart,
   loginSuccess,
   loginFailure,
-  addUserToDb,
-  type User,
+  loginPending,
+  require2FAVerification,
+  loginComplete,
+  twoFAVerifyFailure,
+  authRestored,
 } from "./authSlice";
+import axios from "axios";
 
 // validation de helpers
 const isValidEmail = (email: string): boolean => {
@@ -47,15 +52,11 @@ export const registerUser = (
   email: string,
   password: string
 ) => {
-  return async (dispatch: AppDispatch, getState: AppGetState) => {
-    console.log("🚀 [REGISTER] Début de l'inscription", { username, email });
+  return async (dispatch: AppDispatch, _getState: unknown, extra: Dependencies) => {
     dispatch(registerStart());
 
-    // simulation de délai réseau
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
     try {
-      // Validations
+      // Validations côté client
       if (!username || !email || !password) {
         throw new Error("Tous les champs sont obligatoires");
       }
@@ -69,89 +70,136 @@ export const registerUser = (
         throw new Error(passwordValidation.errors.join(", "));
       }
 
-      // Vérifier si l'email existe déjà
-      const { auth } = getState();
-      console.log("📊 [REGISTER] Users existants dans le store:", auth.users);
-      const emailExists = auth.users.some((u) => u.email === email);
+      // Appel API
+      const data = await extra.authApi.register(username, email, password);
 
-      if (emailExists) {
-        throw new Error("Cet email est déjà utilisé");
-      }
-
-      // Créer l'utilisateur
-      const newUser: User & { password: string } = {
-        id: crypto.randomUUID(),
-        username,
-        email,
-        password, // En production, JAMAIS stocker en clair !
-      };
-
-      console.log("✨ [REGISTER] Nouvel utilisateur créé:", { ...newUser, password: "***" });
-
-      // Ajouter à la DB simulée
-      dispatch(addUserToDb(newUser));
-
-      // Vérifier que l'utilisateur a été ajouté
-      const updatedState = getState();
-      console.log("💾 [REGISTER] Users après ajout:", updatedState.auth.users);
+      // Stocker le token JWT
+      localStorage.setItem("token", data.token);
 
       // Connecter l'utilisateur
-      const { password: _, ...userWithoutPassword } = newUser;
-      dispatch(registerSuccess(userWithoutPassword));
-
-      console.log("✅ [REGISTER] Inscription réussie, utilisateur connecté:", userWithoutPassword);
+      dispatch(registerSuccess(data.user));
     } catch (error) {
-      console.error("❌ [REGISTER] Erreur lors de l'inscription:", error);
-      dispatch(
-        registerFailure(
-          error instanceof Error ? error.message : "Erreur inconnue"
-        )
-      );
+      if (axios.isAxiosError(error)) {
+        dispatch(
+          registerFailure(error.response?.data?.message ?? "Erreur lors de l'inscription")
+        );
+      } else {
+        dispatch(
+          registerFailure(
+            error instanceof Error ? error.message : "Erreur inconnue"
+          )
+        );
+      }
     }
   };
 };
 
-// un thuk pour la connexion
-export const loginUser = (email: string, password: string) => {
-  return async (dispatch: AppDispatch, getState: AppGetState) => {
-    console.log("🔑 [LOGIN] Tentative de connexion", { email });
-    dispatch(loginStart());
-
-    await new Promise((resolve) => setTimeout(resolve, 800));
+// un thunk pour restaurer la session depuis le localStorage au démarrage
+export const restoreAuth = () => {
+  return (dispatch: AppDispatch) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
 
     try {
-      // validation
-      if (!email || !password) throw new Error("Tous les champs sont requis");
+      // Décoder le payload JWT (base64url → JSON) sans librairie
+      const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
 
-      // Rechercher l'utilisateur
-      const { auth } = getState();
-      console.log("📊 [LOGIN] Tous les utilisateurs dans le store:", auth.users);
-      console.log("🔍 [LOGIN] Recherche de l'utilisateur avec email:", email);
-
-      const user = auth.users.find(
-        (u) => u.email === email && u.password === password
-      );
-
-      console.log("🔍 [LOGIN] Utilisateur trouvé:", user ? { ...user, password: "***" } : null);
-
-      if (!user) {
-        console.error("❌ [LOGIN] Aucun utilisateur trouvé avec ces credentials");
-        throw new Error("Email ou mot de passe incorrect");
+      // Vérifier l'expiration du token
+      if (payload.exp && payload.exp * 1000 < Date.now()) {
+        localStorage.removeItem("token");
+        return;
       }
 
-      // Connecter l'utilisateur
-      const { password: _, ...userWithoutPassword } = user;
-      dispatch(loginSuccess(userWithoutPassword));
-      console.log("✅ [LOGIN] Connexion réussie:", userWithoutPassword);
+      // Rehydrater le store avec les données du token
+      dispatch(loginSuccess({
+        id: payload.id ?? payload.sub ?? "",
+        username: payload.username ?? "",
+        email: payload.email ?? "",
+      }));
 
-      dispatch(syncProfileFromAuth()); // Synchroniser le profil
-      console.log("👤 [LOGIN] Profil synchronisé");
+      // Charger le profil depuis l'API
+      dispatch(syncProfileFromAuth());
+    } catch {
+      // Token malformé : on le supprime
+      localStorage.removeItem("token");
+    } finally {
+      // Signale que la restauration est terminée dans tous les cas
+      dispatch(authRestored());
+    }
+  };
+};
 
+// un thunk pour la connexion
+export const loginUser = (email: string, password: string) => {
+  return async (dispatch: AppDispatch, getState: AppGetState, extra: Dependencies) => {
+    dispatch(loginStart());
+
+    try {
+      // Validation côté client
+      if (!email || !password) throw new Error("Tous les champs sont requis");
+
+      // Appel API
+      const data = await extra.authApi.login(email, password);
+
+      // Stocker le token JWT (nécessaire pour les requêtes suivantes)
+      localStorage.setItem("token", data.data.token);
+
+      // Marquer l'utilisateur comme en attente (pas encore authentifié)
+      dispatch(loginPending(data.data.user));
+
+      // Récupérer le profil pour savoir si la 2FA est activée
+      await dispatch(syncProfileFromAuth());
+
+      const { userProfile } = getState();
+      if (userProfile.is2FAEnabled) {
+        dispatch(require2FAVerification());
+      } else {
+        dispatch(loginComplete());
+      }
     } catch (error) {
-      console.error("❌ [LOGIN] Erreur lors de la connexion:", error);
-      dispatch(
-        loginFailure(error instanceof Error ? error.message : "Erreur inconnue")
-      );
+      if (axios.isAxiosError(error)) {
+        dispatch(
+          loginFailure(error.response?.data?.message ?? "Email ou mot de passe incorrect")
+        );
+      } else {
+        dispatch(
+          loginFailure(error instanceof Error ? error.message : "Erreur inconnue")
+        );
+      }
+    }
+  };
+};
+
+// Thunk pour vérifier le code TOTP lors de la connexion
+export const verify2FAAtLogin = (token: string) => {
+  return async (dispatch: AppDispatch, _getState: AppGetState, extra: Dependencies) => {
+    dispatch(loginStart());
+    try {
+      await extra.authApi.verifyTOTPLogin(token);
+      dispatch(loginComplete());
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        dispatch(twoFAVerifyFailure(error.response?.data?.message ?? "Code invalide"));
+      } else {
+        dispatch(twoFAVerifyFailure(error instanceof Error ? error.message : "Erreur inconnue"));
+      }
+    }
+  };
+};
+
+// Thunk pour utiliser un code de secours lors de la connexion
+export const useBackupCodeAtLogin = (code: string) => {
+  return async (dispatch: AppDispatch, _getState: AppGetState, extra: Dependencies) => {
+    dispatch(loginStart());
+    try {
+      await extra.authApi.useBackupCode(code);
+      dispatch(loginComplete());
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        dispatch(twoFAVerifyFailure(error.response?.data?.message ?? "Code de secours invalide"));
+      } else {
+        dispatch(twoFAVerifyFailure(error instanceof Error ? error.message : "Erreur inconnue"));
+      }
     }
   };
 };

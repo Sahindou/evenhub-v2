@@ -5,15 +5,21 @@ import userEvent from "@testing-library/user-event";
 import { Provider } from "react-redux";
 import { createTestStore } from "../../../modules/testing/tests-environment";
 import type { AppStore } from "../../../modules/store/store";
-import { addUserToDb } from "../store/authSlice";
+import type { AuthApi } from "../../../modules/api/authApi";
 
 describe("Register page", () => {
   let store: AppStore;
+  let mockAuthApi: { login: jest.Mock; register: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Créer un nouveau store pour chaque test
-    store = createTestStore();
+    mockAuthApi = {
+      login: jest.fn(),
+      register: jest.fn(),
+    };
+    store = createTestStore({
+      dependencies: { authApi: mockAuthApi as unknown as AuthApi },
+    });
   });
 
   const setup = () => {
@@ -26,7 +32,7 @@ describe("Register page", () => {
 
   it("should display all inputs", () => {
     setup();
-    
+
     const username = screen.getByPlaceholderText("Enter your username");
     const email = screen.getByPlaceholderText("Enter your email");
     const password = screen.getByPlaceholderText("Enter your password");
@@ -38,7 +44,7 @@ describe("Register page", () => {
 
   it("should keep button disabled when form is incomplete", async () => {
     setup();
-    
+
     const btn = screen.getByRole("button", { name: "Sign up" });
     const email = screen.getByPlaceholderText("Enter your email");
 
@@ -70,6 +76,16 @@ describe("Register page", () => {
   });
 
   it("should dispatch registerUser action on form submit", async () => {
+    // Mock de l'API qui retourne un utilisateur créé
+    mockAuthApi.register.mockResolvedValue({
+      token: "fake-jwt-token",
+      user: {
+        id: "generated-id",
+        username: "Testeur",
+        email: "test@eventhub.com",
+      },
+    });
+
     setup();
 
     const username = screen.getByPlaceholderText("Enter your username");
@@ -90,7 +106,7 @@ describe("Register page", () => {
       expect(state.auth.isLoading).toBe(true);
     });
 
-    // Attendre la fin du thunk 
+    // Attendre la fin du thunk
     await waitFor(
       () => {
         const state = store.getState();
@@ -104,6 +120,12 @@ describe("Register page", () => {
       },
       { timeout: 2000 }
     );
+
+    expect(mockAuthApi.register).toHaveBeenCalledWith(
+      "Testeur",
+      "test@eventhub.com",
+      "Testeur123@"
+    );
   });
 
   it("should show error for invalid password", async () => {
@@ -115,7 +137,7 @@ describe("Register page", () => {
 
     await userEvent.type(username, "Testeur");
     await userEvent.type(email, "test@eventhub.com");
-    await userEvent.type(password, "weak"); 
+    await userEvent.type(password, "weak");
 
     const form = email.closest("form");
     fireEvent.submit(form!);
@@ -132,28 +154,24 @@ describe("Register page", () => {
   });
 
   it("should show error for duplicate email", async () => {
-    // Pré-remplir le store avec un utilisateur existant via une action Redux
-    store.dispatch(
-      addUserToDb({
-        id: "1",
-        username: "ExistingUser",
-        email: "test@eventhub.com",
-        password: "Testeur123@",
-      })
-    );
+    // Mock de l'API qui retourne une erreur de doublon
+    const axiosError = {
+      isAxiosError: true,
+      response: {
+        data: { message: "Cet email est déjà utilisé" },
+        status: 409,
+      },
+    };
+    mockAuthApi.register.mockRejectedValue(axiosError);
 
-    render(
-      <Provider store={store}>
-        <RegisterPage />
-      </Provider>
-    );
+    setup();
 
     const username = screen.getByPlaceholderText("Enter your username");
     const email = screen.getByPlaceholderText("Enter your email");
     const password = screen.getByPlaceholderText("Enter your password");
 
     await userEvent.type(username, "Testeur");
-    await userEvent.type(email, "test@eventhub.com"); 
+    await userEvent.type(email, "test@eventhub.com");
     await userEvent.type(password, "Testeur123@");
 
     const form = email.closest("form");

@@ -8,19 +8,21 @@ export interface User {
 
 export interface AuthState {
   user: User | null;
-  users: Array<User & { password: string }>;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isInitializing: boolean;
   error: string | null;
+  requires2FAVerification: boolean;
 }
 
 // Etat initial
 const initialState: AuthState = {
   user: null,
-  users: [],
   isAuthenticated: false,
   isLoading: false,
+  isInitializing: true, // true tant que restoreAuth n'a pas terminé
   error: null,
+  requires2FAVerification: false,
 };
 
 
@@ -65,26 +67,48 @@ const authSlice = createSlice({
       state.error = action.payload;
     },
 
+    // Connexion réussie côté API mais en attente de vérification 2FA
+    loginPending: (state, action: PayloadAction<User>) => {
+      state.isLoading = false;
+      state.user = action.payload;
+      state.isAuthenticated = false;
+      state.error = null;
+    },
+
+    // Déclenche l'étape de vérification 2FA
+    require2FAVerification: (state) => {
+      state.requires2FAVerification = true;
+    },
+
+    // 2FA vérifiée avec succès — authentification complète
+    loginComplete: (state) => {
+      state.isAuthenticated = true;
+      state.requires2FAVerification = false;
+      state.isLoading = false;
+      state.error = null;
+    },
+
+    // Erreur pendant la vérification 2FA
+    twoFAVerifyFailure: (state, action: PayloadAction<string>) => {
+      state.isLoading = false;
+      state.error = action.payload;
+    },
+
     logout(state) {
       state.user = null;
       state.isAuthenticated = false;
+      state.requires2FAVerification = false;
       state.error = null;
+      localStorage.removeItem("token");
     },
 
     clearError: (state) => {
       state.error = null;
     },
 
-    //helper pour simuler un user dans la bdd
-    addUserToDb: (
-      state,
-      action: PayloadAction<User & { password: string }>
-    ) => {
-      console.log("💾 [SLICE] addUserToDb - Ajout d'un utilisateur:", { ...action.payload, password: "***" });
-      console.log("💾 [SLICE] addUserToDb - Nombre d'users avant:", state.users.length);
-      state.users.push(action.payload);
-      console.log("💾 [SLICE] addUserToDb - Nombre d'users après:", state.users.length);
-      console.log("💾 [SLICE] addUserToDb - Tous les users:", state.users.map(u => ({ ...u, password: "***" })));
+    // Signale que restoreAuth a terminé (token valide ou absent)
+    authRestored: (state) => {
+      state.isInitializing = false;
     },
 
   },
@@ -97,10 +121,13 @@ export const {
   loginStart,
   loginSuccess,
   loginFailure,
+  loginPending,
+  require2FAVerification,
+  loginComplete,
+  twoFAVerifyFailure,
   logout,
   clearError,
-  addUserToDb,
+  authRestored,
 } = authSlice.actions;
 
 export const authReducer = authSlice.reducer;
-
