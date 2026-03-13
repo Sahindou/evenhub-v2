@@ -3,6 +3,7 @@ import { createStore, type AppStore } from "../store/store";
 import { AuthApi } from "../api/authApi";
 import { ProfileApi } from "../api/profileApi";
 import { DashboardApi } from "../api/dashboardApi";
+import { AnalyticsApi } from "../../features/analytics/send-analytics.api";
 
 export class App{
     public dependencies: Dependencies;
@@ -18,7 +19,8 @@ export class App{
         return {
             authApi: new AuthApi(apiBaseUrl),
             profileApi: new ProfileApi(apiBaseUrl),
-            dashboardApi: new DashboardApi(apiBaseUrl)
+            dashboardApi: new DashboardApi(apiBaseUrl),
+            analyticsGateway: new AnalyticsApi(apiBaseUrl)
         }
     }
 }

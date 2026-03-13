@@ -5,13 +5,15 @@ import { authReducer } from '../../features/authentification/store/authSlice';
 import { userProfileReducer } from '../../features/user-profile/store/userSlice';
 import { dashboardReducer } from "../../features/dashboard/store/dashboardSlice";
 import { eventReducer } from "../../features/events/store/eventSlice";
+import { analyticsReducer } from "../../features/analytics/analyticsSlice";
 
 
 const reducers = combineReducers({
     auth: authReducer,
     userProfile: userProfileReducer,
     dashboard: dashboardReducer,
-    events: eventReducer
+    events: eventReducer,
+    analytics: analyticsReducer,
 })
 
 export type AppStore = ReturnType<typeof createStore>;

@@ -9,8 +9,10 @@ import {
   CircularProgress,
   Alert,
 } from "@mui/material";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useAppDispatch } from "../../../../modules/store/store";
 import { fetchDashboardStats } from "../../store/dashboardThunks";
+import { fetchAnalytics } from "../../../analytics/send-analytics.action";
 import type { AppState } from "../../../../modules/store/store";
 
 // Lazy loading des charts : Recharts est lourd (~500 KB).
@@ -41,7 +43,10 @@ export const DashboardPage = () => {
 
   useEffect(() => {
     dispatch(fetchDashboardStats());
+    dispatch(fetchAnalytics());
   }, [dispatch]);
+
+  const analyticsData = useSelector((state: AppState) => state.analytics.data);
 
   if (isLoading) {
     return (
@@ -126,6 +131,27 @@ export const DashboardPage = () => {
             </CardContent>
           </Card>
         </Grid>
+
+        {/* ── Analytics MongoDB : Pages les plus consultées ── */}
+        {analyticsData && analyticsData.topPages.length > 0 && (
+          <Grid item xs={12}>
+            <Card elevation={2}>
+              <CardContent>
+                <Typography variant="h6" mb={2}>
+                  Pages les plus consultées (Analytics MongoDB)
+                </Typography>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={analyticsData.topPages}>
+                    <XAxis dataKey="page" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#6366f1" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
 
         {/* ── Prochains événements ── */}
         <Grid item xs={12}>

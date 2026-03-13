@@ -1,9 +1,12 @@
 import { Container, CssBaseline, Toolbar, Typography, Button, Box } from "@mui/material";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useTrackPageView } from "../../../features/analytics/useTrackPageView";
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const navigate = useNavigate();
     const location = useLocation();
+
+    useTrackPageView(location.pathname);
 
     return (
         <>
