@@ -5,6 +5,7 @@ import { LoginPage } from "./features/authentification/ui/pages/LoginPage";
 import { RegisterPage } from "./features/authentification/ui/pages/RegisterPage";
 import { TwoFactorVerificationPage } from "./features/authentification/ui/pages/TwoFactorVerificationPage";
 import { UserProfilePage } from "./features/user-profile/ui/pages/UserProfilePage";
+import { DashboardPage } from "./features/dashboard/ui/pages/DashboardPage";
 
 function App() {
   return (
@@ -25,6 +26,8 @@ function App() {
               </Layout>
             }
           />
+          <Route
+            path="/dashboard" element={<Layout><DashboardPage /></Layout>} />
 
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>

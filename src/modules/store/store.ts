@@ -3,11 +3,13 @@ import type { Dependencies } from "./dependencies"
 import {useDispatch} from "react-redux";
 import { authReducer } from '../../features/authentification/store/authSlice';
 import { userProfileReducer } from '../../features/user-profile/store/userSlice';
+import { dashboardReducer } from "../../features/dashboard/store/dashboardSlice";
 
 
 const reducers = combineReducers({
     auth: authReducer,
-    userProfile: userProfileReducer
+    userProfile: userProfileReducer,
+    dashboard: dashboardReducer
 })
 
 export type AppStore = ReturnType<typeof createStore>;
