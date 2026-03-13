@@ -4,12 +4,14 @@ import {useDispatch} from "react-redux";
 import { authReducer } from '../../features/authentification/store/authSlice';
 import { userProfileReducer } from '../../features/user-profile/store/userSlice';
 import { dashboardReducer } from "../../features/dashboard/store/dashboardSlice";
+import { eventReducer } from "../../features/events/store/eventSlice";
 
 
 const reducers = combineReducers({
     auth: authReducer,
     userProfile: userProfileReducer,
-    dashboard: dashboardReducer
+    dashboard: dashboardReducer,
+    events: eventReducer
 })
 
 export type AppStore = ReturnType<typeof createStore>;

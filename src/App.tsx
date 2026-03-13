@@ -32,6 +32,12 @@ const UserProfilePage = lazy(() =>
   }))
 );
 
+const EventListPage = lazy(() =>
+  import('./features/events/ui/pages/EventListPage').then((m) => ({
+    default: m.EventListPage,
+  }))
+);
+
 // Priorité haute : Dashboard (composant lourd avec Recharts ~500 KB).
 // En production, on peut déclencher le prefetch après login avec :
 //   import("./features/dashboard/ui/pages/DashboardPage")
@@ -69,6 +75,8 @@ function App() {
                 </Layout>
               }
             />
+            <Route path="/events" element={<Layout><EventListPage /></Layout>} />
+
 
             <Route path="/" element={<Navigate to="/login" replace />} />
           </Routes>

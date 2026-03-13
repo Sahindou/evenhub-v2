@@ -19,17 +19,22 @@ export interface DashboardStats {
   };
 }
 
-export interface EventsListResponse {
+export interface PaginatedEventsResponse {
   data: {
-    id: string;
-    title: string;
-    startDate: string;
-    endDate: string;
-    capacity: number;
-    price: number;
-    categoryId: string;
-    organizerId: string;
-  }[];
+    data: {
+      id: string;
+      title: string;
+      startDate: string;
+      endDate: string;
+      capacity: number;
+      price: number;
+      categoryId: string;
+      organizerId: string;
+    }[];
+    total: number;
+    page: number;
+    totalPages: number;
+  };
 }
 
 export class DashboardApi {
@@ -48,8 +53,10 @@ export class DashboardApi {
     return response.data;
   }
 
-  async getEvents(): Promise<EventsListResponse> {
-    const response = await this.client.get<EventsListResponse>("/events");
+  async getEvents(page = 1, limit = 10): Promise<PaginatedEventsResponse> {
+    const response = await this.client.get<PaginatedEventsResponse>(
+      `/events?page=${page}&limit=${limit}`,
+    );
     return response.data;
   }
 }
